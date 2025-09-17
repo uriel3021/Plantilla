@@ -1,4 +1,5 @@
-﻿using Finbuckle.MultiTenant.Abstractions;
+﻿using FSH.Starter.WebApi.Catalog.Domain.Events;
+using Finbuckle.MultiTenant.Abstractions;
 using FSH.Framework.Core.Origin;
 using FSH.Framework.Core.Persistence;
 using FSH.Framework.Infrastructure.Identity.RoleClaims;
@@ -9,18 +10,20 @@ using FSH.Starter.Shared.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using IdentityConstants = FSH.Starter.Shared.Authorization.IdentityConstants;
+
+
+
 
 namespace FSH.Framework.Infrastructure.Identity.Persistence;
+
+
 internal sealed class IdentityDbInitializer(
     ILogger<IdentityDbInitializer> logger,
     IdentityDbContext context,
     RoleManager<FshRole> roleManager,
     UserManager<FshUser> userManager,
     TimeProvider timeProvider,
-    IMultiTenantContextAccessor<FshTenantInfo> multiTenantContextAccessor,
-    IOptions<OriginOptions> originSettings) : IDbInitializer
+    IMultiTenantContextAccessor<FshTenantInfo> multiTenantContextAccessor) : IDbInitializer
 {
     public async Task MigrateAsync(CancellationToken cancellationToken)
     {
@@ -105,19 +108,27 @@ internal sealed class IdentityDbInitializer(
         if (await userManager.Users.FirstOrDefaultAsync(u => u.Email == multiTenantContextAccessor.MultiTenantContext.TenantInfo!.AdminEmail)
             is not FshUser adminUser)
         {
-            string adminUserName = $"{multiTenantContextAccessor.MultiTenantContext.TenantInfo?.Id.Trim()}.{FshRoles.Admin}".ToUpperInvariant();
+            string adminUserName = "bernardo.garcia@fgr.org.mx".ToUpperInvariant();
+
+            // Obtener el Id de la unidad administrativa desde el evento compartido
+            // Requiere: using FSH.Starter.WebApi.Catalog.Domain.Events;
+            var uaId = SeedEventBus.UnidadEvent?.CatUnidadAdministrativa?.Id
+                ?? throw new InvalidOperationException("No se ha creado la unidad administrativa.");
+
             adminUser = new FshUser
             {
-                FirstName = multiTenantContextAccessor.MultiTenantContext.TenantInfo?.Id.Trim().ToUpperInvariant(),
-                LastName = FshRoles.Admin,
-                Email = multiTenantContextAccessor.MultiTenantContext.TenantInfo?.AdminEmail,
+                Id = "12503623-1598-4adb-b799-9f8952d0e842",
+                FirstName = "Bernardo Uriel",
+                LastName = "Garcia Garduño",
+                Email = adminUserName,
                 UserName = adminUserName,
                 EmailConfirmed = true,
                 PhoneNumberConfirmed = true,
-                NormalizedEmail = multiTenantContextAccessor.MultiTenantContext.TenantInfo?.AdminEmail!.ToUpperInvariant(),
+                NormalizedEmail = adminUserName.ToUpperInvariant(),
                 NormalizedUserName = adminUserName.ToUpperInvariant(),
-                ImageUrl = new Uri(originSettings.Value.OriginUrl! + TenantConstants.Root.DefaultProfilePicture),
-                IsActive = true
+                IsActive = true,
+                ObjectId = "12503623-1598-4adb-b799-9f8952d0e842",
+                UAId = uaId
             };
 
             logger.LogInformation("Seeding Default Admin User for '{TenantId}' Tenant.", multiTenantContextAccessor.MultiTenantContext.TenantInfo?.Id);
@@ -132,5 +143,8 @@ internal sealed class IdentityDbInitializer(
             logger.LogInformation("Assigning Admin Role to Admin User for '{TenantId}' Tenant.", multiTenantContextAccessor.MultiTenantContext.TenantInfo?.Id);
             await userManager.AddToRoleAsync(adminUser, FshRoles.Admin);
         }
+        
+
+
     }
 }

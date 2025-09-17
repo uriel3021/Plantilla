@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+using FSH.Starter.WebApi.Catalog.Domain;
+using Microsoft.AspNetCore.Identity;
 
 namespace FSH.Framework.Infrastructure.Identity.Users;
 public class FshUser : IdentityUser
@@ -11,4 +13,7 @@ public class FshUser : IdentityUser
     public DateTime RefreshTokenExpiryTime { get; set; }
 
     public string? ObjectId { get; set; }
+    public Guid UAId { get; set; }
+    [NotMapped]
+    public virtual string Roles { get; set; }
 }

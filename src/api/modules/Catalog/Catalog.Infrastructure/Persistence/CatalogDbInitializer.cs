@@ -30,5 +30,23 @@ internal sealed class CatalogDbInitializer(
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             logger.LogInformation("[{Tenant}] seeding default catalog data", context.TenantInfo!.Identifier);
         }
+
+
+
+            // Seed Unidad Administrativa
+        const string uaDesCorta = "UEITICS";
+        const string uaDescripcion = "UNIDAD ESPECIALIZADA DE INFRAESTRUCTURA TECNOLÓGICA, COMUNICACIONES Y SISTEMAS";
+        const string uaClavePresupuestal = "850";
+
+        Guid? CatUnidadAdministrativaId = null;
+
+        if (await context.CatUnidadesAdministrativas.FirstOrDefaultAsync(t => t.DesCorta == uaDesCorta, cancellationToken).ConfigureAwait(false) is null)
+        {
+            var catUnidad = CatUnidadAdministrativa.Create(uaDesCorta, uaDescripcion, uaClavePresupuestal);
+            await context.CatUnidadesAdministrativas.AddAsync(catUnidad, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            FSH.Starter.WebApi.Catalog.Domain.Events.SeedEventBus.UnidadEvent = new FSH.Starter.WebApi.Catalog.Domain.Events.CatUnidadAdministrativaCreated { CatUnidadAdministrativa = catUnidad };
+            logger.LogInformation("[{Tenant}] seeding default catalog data", context.TenantInfo!.Identifier);
+        }
     }
 }

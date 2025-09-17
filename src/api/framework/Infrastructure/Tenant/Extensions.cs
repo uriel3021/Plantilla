@@ -88,7 +88,9 @@ internal static class Extensions
 
             // using the scope, perform migrations / seeding
             var initializers = tenantScope.ServiceProvider.GetServices<IDbInitializer>();
-            foreach (var initializer in initializers)
+            // Ordenar para que CatalogDbInitializer se ejecute primero
+            var orderedInitializers = initializers.OrderBy(x => x.GetType().Name.Contains("Catalog", StringComparison.OrdinalIgnoreCase) ? 0 : 1).ToList();
+            foreach (var initializer in orderedInitializers)
             {
                 initializer.MigrateAsync(CancellationToken.None).Wait();
                 initializer.SeedAsync(CancellationToken.None).Wait();
