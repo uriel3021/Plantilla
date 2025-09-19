@@ -1,16 +1,13 @@
-﻿<CascadingAuthenticationState>
+﻿
+
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+
+<CascadingAuthenticationState>
     <Router AppAssembly="@typeof(Program).Assembly">
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(BaseLayout)">
                 <NotAuthorized>
-                    @if (@context.User.Identity?.IsAuthenticated is true)
-                    {
-                        <p>You are not authorized to be here.</p>
-                    }
-                    else
-                    {
-                        <Login />
-                    }
+                    <RemoteAuthenticatorView Action="login" />
                 </NotAuthorized>
             </AuthorizeRouteView>
         </Found>

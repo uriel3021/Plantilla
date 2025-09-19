@@ -25,7 +25,6 @@ public static class Extensions
             configuration.SnackbarConfiguration.ShowCloseIcon = false;
         });
         services.AddBlazoredLocalStorage();
-        services.AddAuthentication(config);
         services.AddTransient<IApiClient, ApiClient>();
         services.AddHttpClient(ClientName, client =>
         {

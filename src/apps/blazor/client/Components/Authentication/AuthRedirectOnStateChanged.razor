@@ -1,0 +1,117 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+@inject IAccessTokenProvider TokenProvider
+
+@if (_checking)
+{
+    <div class="auth-msg">Verificando sesión (intentos @_attempts)...</div>
+}
+
+@code {
+    private bool _done;
+    private bool _checking = true;
+    private int _attempts;
+    private const int MaxAttempts = 50; // ~5s si 100ms
+    private readonly TimeSpan _interval = TimeSpan.FromMilliseconds(100);
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ConsoleLog("INIT: suscribiendo evento");
+        AuthStateProvider.AuthenticationStateChanged += OnAuthStateChanged;
+        _cts = new CancellationTokenSource();
+        var st = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (CheckAndNavigate(st.User, "init")) return;
+        // Intento silencioso de token para forzar actualización interna de MSAL
+        await TrySilentTokenAsync();
+        if (!_done)
+        {
+            _ = PollFallbackAsync(_cts.Token);
+        }
+    }
+
+    private async Task TrySilentTokenAsync()
+    {
+        try
+        {
+            ConsoleLog("TOKEN: solicitando silent access token");
+            var res = await TokenProvider.RequestAccessToken();
+            if (res.TryGetToken(out var token))
+            {
+                ConsoleLog($"TOKEN OK: exp {token.Expires:O} len={token.Value.Length}");
+            }
+            else
+            {
+                ConsoleLog("TOKEN FAIL: no se obtuvo (aún)");
+            }
+        }
+        catch (Exception ex)
+        {
+            ConsoleLog("TOKEN EX: " + ex.GetType().Name + " - " + ex.Message);
+        }
+    }
+
+    private async Task PollFallbackAsync(CancellationToken ct)
+    {
+        ConsoleLog("POLL: iniciando fallback loop");
+        while (!ct.IsCancellationRequested && !_done && _attempts < MaxAttempts)
+        {
+            _attempts++;
+            var st = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (CheckAndNavigate(st.User, "poll")) return;
+            await Task.Delay(_interval, ct);
+        }
+        if (!_done)
+        {
+            _checking = false;
+            ConsoleLog("POLL: agotado sin autenticación real");
+            StateHasChanged();
+        }
+    }
+
+    private void OnAuthStateChanged(Task<AuthenticationState> task)
+    {
+        ConsoleLog("EVENT: AuthenticationStateChanged disparado");
+        _ = HandleAsync(task);
+    }
+
+    private async Task HandleAsync(Task<AuthenticationState> task)
+    {
+        if (_done) return;
+        var st = await task;
+        CheckAndNavigate(st.User, "event");
+    }
+
+    private bool CheckAndNavigate(System.Security.Claims.ClaimsPrincipal user, string origin)
+    {
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            ConsoleLog($"NAV: authenticated via {origin}, navegando a root");
+            Navigate();
+            return true;
+        }
+        ConsoleLog($"CHK: no auth yet (from {origin})");
+        return false;
+    }
+
+    private void Navigate()
+    {
+        if (_done) return;
+        _done = true;
+        _checking = false;
+        _cts?.Cancel();
+        Nav.NavigateTo("/");
+        StateHasChanged();
+    }
+
+    private void ConsoleLog(string msg) => Console.WriteLine($"[AuthRedirectOnStateChanged] {msg}");
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthStateChanged;
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

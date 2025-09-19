@@ -1,0 +1,96 @@
+@page "/authentication/debug"
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@inject IAccessTokenProvider TokenProvider
+@inject NavigationManager Nav
+
+<h3>Debug Token & Claims</h3>
+
+@if (_loading)
+{
+    <p>Cargando token...</p>
+}
+else if (!string.IsNullOrEmpty(_error))
+{
+    <p style="color:#ff6a6a">Error: @_error</p>
+}
+else if (_token == null)
+{
+    <p>No se obtuvo token (usuario no autenticado o sin permiso).</p>
+}
+else
+{
+    <p><strong>Expires:</strong> @_token.Expires.ToLocalTime()</p>
+    @if(!string.IsNullOrWhiteSpace(_rawJwt)){
+        <details open>
+            <summary>JWT (decodificado)</summary>
+            <pre style="white-space:pre-wrap;font-size:13px">@_rawJwt</pre>
+        </details>
+    }
+    @if(_scopes?.Any()==true){
+        <p><strong>Scopes:</strong> @string.Join(" ", _scopes!)</p>
+    }
+}
+
+<button @onclick="GoHome">Inicio</button>
+
+@code {
+    private bool _loading = true;
+    private string? _error;
+    private AccessToken? _token;
+    private IEnumerable<string>? _scopes;
+    private string? _rawJwt;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await TokenProvider.RequestAccessToken();
+        if (result.TryGetToken(out var token))
+        {
+            _token = token;
+            _rawJwt = DecodeJwt(token.Value);
+            _scopes = ExtractScopes(_rawJwt);
+        }
+        else
+        {
+            // AccessTokenResult no expone Exception en esta versión, mostramos mensaje genérico.
+            _error = "No se pudo obtener el token (quizá no autenticado o falta scope).";
+        }
+        _loading = false;
+    }
+
+    private void GoHome() => Nav.NavigateTo("/");
+
+    private static string? DecodeJwt(string jwt)
+    {
+        try
+        {
+            var parts = jwt.Split('.');
+            if (parts.Length < 2) return null;
+            string PayloadBase64 = parts[1]
+                .Replace('-', '+')
+                .Replace('_', '/');
+            switch(PayloadBase64.Length % 4)
+            {
+                case 2: PayloadBase64 += "=="; break;
+                case 3: PayloadBase64 += "="; break;
+            }
+            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(PayloadBase64));
+            return json;
+        }
+        catch { return null; }
+    }
+
+    private static IEnumerable<string>? ExtractScopes(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("scp", out var scpProp))
+            {
+                return scpProp.GetString()?.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            }
+        }
+        catch { }
+        return null;
+    }
+}

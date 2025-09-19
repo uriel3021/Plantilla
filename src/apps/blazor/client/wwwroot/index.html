@@ -13,9 +13,11 @@
     <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link href="css/fsh.css" rel="stylesheet" />
+    <link href="css/auth.css" rel="stylesheet" />
 </head>
 
 <body>
+    <!-- Auth minimal: banner y overlays removidos para UX limpia -->
     <div id="app">
         <style>
             @keyframes slide {
@@ -64,9 +66,17 @@
         <a href="" class="reload">Reload</a>
         <a class="dismiss">🗙</a>
     </div>
-    <script src="_framework/blazor.webassembly.js"></script>
-    <script>navigator.serviceWorker.register('service-worker.js');</script>
-    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+                <!-- Bootstrap estándar sin gating JS -->
+        <script>
+            (function(){
+                try { window.localStorage.debug='msal:*'; } catch {}
+            })();
+        </script>
+        <script src="_framework/blazor.webassembly.js"></script>
+        <script src="_content/Microsoft.Authentication.WebAssembly.Msal/AuthenticationService.js"></script>
+        <!-- Service worker deshabilitado intencionalmente mientras se estabiliza auth. -->
+        <!-- <script>navigator.serviceWorker.register('service-worker.js');</script> -->
+        <script src="_content/MudBlazor/MudBlazor.min.js"></script>
 </body>
 
 </html>

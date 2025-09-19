@@ -91,8 +91,9 @@ public static class Extensions
             FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "assets")),
             RequestPath = new PathString("/assets")
         });
-        app.UseAuthentication();
-        app.UseAuthorization();
+    app.UseAuthentication();
+    app.UseMiddleware<FSH.Framework.Infrastructure.Identity.Middleware.LocalRolesClaimsMiddleware>();
+    app.UseAuthorization();
         app.MapTenantEndpoints();
         app.MapIdentityEndpoints();
 

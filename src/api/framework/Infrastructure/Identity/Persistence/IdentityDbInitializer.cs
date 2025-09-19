@@ -105,46 +105,51 @@ internal sealed class IdentityDbInitializer(
             return;
         }
 
-        if (await userManager.Users.FirstOrDefaultAsync(u => u.Email == multiTenantContextAccessor.MultiTenantContext.TenantInfo!.AdminEmail)
-            is not FshUser adminUser)
+        var adminUser = await userManager.Users.FirstOrDefaultAsync(u => u.Email == multiTenantContextAccessor.MultiTenantContext.TenantInfo!.AdminEmail);
+        if (adminUser != null)
         {
-            string adminUserName = "bernardo.garcia@fgr.org.mx".ToUpperInvariant();
-
-            // Obtener el Id de la unidad administrativa desde el evento compartido
-            // Requiere: using FSH.Starter.WebApi.Catalog.Domain.Events;
-            var uaId = SeedEventBus.UnidadEvent?.CatUnidadAdministrativa?.Id
-                ?? throw new InvalidOperationException("No se ha creado la unidad administrativa.");
-
-            adminUser = new FshUser
+            // El usuario ya existe, no es necesario sembrar ni usar el evento
+            // Asignar rol si no lo tiene
+            if (!await userManager.IsInRoleAsync(adminUser, FshRoles.Admin))
             {
-                Id = "12503623-1598-4adb-b799-9f8952d0e842",
-                FirstName = "Bernardo Uriel",
-                LastName = "Garcia Garduño",
-                Email = adminUserName,
-                UserName = adminUserName,
-                EmailConfirmed = true,
-                PhoneNumberConfirmed = true,
-                NormalizedEmail = adminUserName.ToUpperInvariant(),
-                NormalizedUserName = adminUserName.ToUpperInvariant(),
-                IsActive = true,
-                ObjectId = "12503623-1598-4adb-b799-9f8952d0e842",
-                UAId = uaId
-            };
-
-            logger.LogInformation("Seeding Default Admin User for '{TenantId}' Tenant.", multiTenantContextAccessor.MultiTenantContext.TenantInfo?.Id);
-            var password = new PasswordHasher<FshUser>();
-            adminUser.PasswordHash = password.HashPassword(adminUser, TenantConstants.DefaultPassword);
-            await userManager.CreateAsync(adminUser);
+                logger.LogInformation("Assigning Admin Role to Admin User for '{TenantId}' Tenant.", multiTenantContextAccessor.MultiTenantContext.TenantInfo?.Id);
+                await userManager.AddToRoleAsync(adminUser, FshRoles.Admin);
+            }
+            return;
         }
 
-        // Assign role to user
-        if (!await userManager.IsInRoleAsync(adminUser, FshRoles.Admin))
+        string adminUserName = "bernardo.garcia@fgr.org.mx".ToUpperInvariant();
+
+        // Obtener el Id de la unidad administrativa desde el evento compartido
+        var uaId = SeedEventBus.UnidadEvent?.CatUnidadAdministrativa?.Id;
+        if (uaId == null)
         {
-            logger.LogInformation("Assigning Admin Role to Admin User for '{TenantId}' Tenant.", multiTenantContextAccessor.MultiTenantContext.TenantInfo?.Id);
-            await userManager.AddToRoleAsync(adminUser, FshRoles.Admin);
+            logger.LogWarning("No se ha creado la unidad administrativa. El usuario admin no será sembrado en este arranque.");
+            return;
         }
-        
 
+        adminUser = new FshUser
+        {
+            Id = "12503623-1598-4adb-b799-9f8952d0e842",
+            FirstName = "Bernardo Uriel",
+            LastName = "Garcia Garduño",
+            Email = adminUserName,
+            UserName = adminUserName,
+            EmailConfirmed = true,
+            PhoneNumberConfirmed = true,
+            NormalizedEmail = adminUserName.ToUpperInvariant(),
+            NormalizedUserName = adminUserName.ToUpperInvariant(),
+            IsActive = true,
+            ObjectId = "12503623-1598-4adb-b799-9f8952d0e842",
+            UAId = (Guid)uaId
+        };
 
+        logger.LogInformation("Seeding Default Admin User for '{TenantId}' Tenant.", multiTenantContextAccessor.MultiTenantContext.TenantInfo?.Id);
+        var password = new PasswordHasher<FshUser>();
+        adminUser.PasswordHash = password.HashPassword(adminUser, TenantConstants.DefaultPassword);
+        await userManager.CreateAsync(adminUser);
+
+        // Asignar rol al nuevo usuario
+        await userManager.AddToRoleAsync(adminUser, FshRoles.Admin);
     }
 }

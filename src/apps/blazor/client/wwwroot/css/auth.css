@@ -1,0 +1,11 @@
+.auth-container{display:flex;min-height:70vh;align-items:center;justify-content:center;padding:2rem}
+.auth-panel{background:#1e1e24;border:1px solid #2c2c33;border-radius:10px;padding:2rem;min-width:320px;max-width:560px;box-shadow:0 4px 18px rgba(0,0,0,.35);font-family:system-ui,Segoe UI,Roboto,sans-serif}
+.auth-title{margin:0 0 1rem;font-weight:600;font-size:1.25rem;color:#fafafa}
+.auth-msg{color:#ccc;font-size:.9rem;line-height:1.35rem;margin:.25rem 0}
+.auth-error{color:#ff9d9d;background:#3b0f14;border:1px solid #65232b;padding:.75rem .9rem;border-radius:6px;font-size:.85rem;white-space:pre-wrap;word-break:break-word}
+.auth-actions{margin-top:1.25rem;display:flex;gap:.75rem;flex-wrap:wrap}
+.auth-btn{background:#2563eb;color:#fff;border:none;padding:.55rem 1rem;border-radius:6px;font-size:.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem}
+.auth-btn.secondary{background:#374151}
+.auth-btn:hover{background:#1d4ed8}
+.auth-spinner{width:46px;height:46px;border:5px solid #2c2f38;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:1.2rem auto 1.2rem}
+@keyframes spin{to{transform:rotate(360deg)}}

@@ -1,0 +1,142 @@
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+@inject IAccessTokenProvider TokenProvider
+
+<!-- Página de fallo que intenta recuperar/normalizar el estado tras 'interaction_in_progress'.
+    Estrategia: (1) comprobar estado, (2) intentar token silencioso, (3) suscribirse a evento, (4) polling corto.
+    Logs prefijo [LoginFailedRedirect] en consola para diagnóstico. -->
+
+@if (_redirecting)
+{
+    <div style="padding:1rem;color:#ccc;font-size:.9rem;">Sesión válida. Redirigiendo...</div>
+}
+else if (_checked && !_isAuth)
+{
+    <div style="padding:1rem;max-width:600px;margin:auto;color:#eee;font-family:system-ui">
+        <h3 style="color:#ff8080;margin-top:0">Inicio de sesión fallido</h3>
+        <p>No se pudo completar la autenticación. Inténtalo de nuevo.</p>
+        <button @onclick="Retry" style="margin-top:1rem;padding:.5rem 1rem;background:#3a6df0;border:none;color:#fff;border-radius:4px;cursor:pointer">Reintentar</button>
+    </div>
+}
+else
+{
+    <div style="padding:1rem;color:#bbb;font-size:.9rem;">Verificando estado de sesión...</div>
+}
+
+@code {
+    private bool _isAuth;
+    private bool _checked;
+    private bool _redirecting;
+    private int _pollCount;
+    private const int MaxPoll = 30; // ~3s a 100ms (el script global ya cubre 5s y reintento)
+    private readonly TimeSpan _interval = TimeSpan.FromMilliseconds(100);
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Log("INIT: entrando página login-failed");
+        _cts = new CancellationTokenSource();
+
+        await CheckOnce("init");
+        if (_isAuth)
+        {
+            await NavigateHome("init-direct");
+            return;
+        }
+
+        // Intento silencioso opcional reducido (una sola vez)
+        await TrySilentTokenAsync();
+        if (_isAuth) { await NavigateHome("silent"); return; }
+
+        AuthStateProvider.AuthenticationStateChanged += OnAuthStateChanged; // si MSAL completa después
+        _ = PollAsync(_cts.Token); // fallback ligero
+    }
+
+    private async Task CheckOnce(string origin)
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isAuth = state.User.Identity?.IsAuthenticated == true;
+        _checked = true;
+        Log($"CHK({origin}): auth={_isAuth}");
+    }
+
+    private async Task TrySilentTokenAsync()
+    {
+        try
+        {
+            Log("TOKEN: intento silencioso");
+            var res = await TokenProvider.RequestAccessToken();
+            if (res.TryGetToken(out var tk))
+            {
+                Log($"TOKEN OK: exp={tk.Expires:O} len={tk.Value.Length}");
+                await CheckOnce("post-token");
+            }
+            else
+            {
+                Log("TOKEN: aún no disponible");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log("TOKEN EX: " + ex.Message);
+        }
+    }
+
+    private async Task PollAsync(CancellationToken ct)
+    {
+        Log("POLL: iniciando");
+        while (!ct.IsCancellationRequested && !_isAuth && _pollCount < MaxPoll)
+        {
+            _pollCount++;
+            await CheckOnce("poll");
+            if (_isAuth)
+            {
+                await NavigateHome("poll");
+                return;
+            }
+            await Task.Delay(_interval, ct);
+        }
+        if (!_isAuth)
+        {
+            Log("POLL: agotado sin auth - se mantiene en pantalla, script global gestionará reintento si procede");
+            StateHasChanged();
+        }
+    }
+
+    private async void OnAuthStateChanged(Task<AuthenticationState> task)
+    {
+        Log("EVENT: AuthenticationStateChanged");
+        var st = await task;
+        if (st.User.Identity?.IsAuthenticated == true)
+        {
+            _isAuth = true;
+            await NavigateHome("event");
+        }
+        else
+        {
+            Log("EVENT: sigue no autenticado");
+        }
+    }
+
+    private async Task NavigateHome(string origin)
+    {
+        if (_redirecting) return;
+        _redirecting = true;
+        Log($"NAV: redirigiendo a '/' origen={origin}");
+        StateHasChanged();
+        await Task.Delay(50);
+        Nav.NavigateTo("/");
+    }
+
+    private void Log(string msg) => Console.WriteLine($"[LoginFailedRedirect] {msg}");
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthStateChanged;
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+
+    private void Retry() => Nav.NavigateTo("authentication/login");
+}

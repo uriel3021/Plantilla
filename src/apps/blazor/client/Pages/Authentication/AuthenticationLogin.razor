@@ -1,0 +1,11 @@
+@page "/authentication/login"
+@attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
+@using Microsoft.Authentication.WebAssembly.Msal
+@using Microsoft.AspNetCore.Components.Authorization
+
+<RemoteAuthenticatorView Action="login">
+    <LogInFailed>
+        <div style="padding:1rem;color:#c33;font-weight:600;font-family:system-ui">Fallo de inicio de sesión.</div>
+    </LogInFailed>
+</RemoteAuthenticatorView>
